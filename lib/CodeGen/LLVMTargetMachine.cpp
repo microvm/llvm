@@ -33,7 +33,47 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/CodeGen/MachineFunction.h"
 using namespace llvm;
+
+// KW: Added this pass to move STACKMAP backwards to its closest CALL
+
+#include "llvm/Pass.h"
+#include "llvm/PassSupport.h"
+
+namespace {
+class StackMapMovement : public MachineFunctionPass {
+public:
+    static char ID;
+    explicit StackMapMovement();
+
+    const char *getPassName() const override {
+        return "Stack Map Movement";
+    }
+
+    bool runOnMachineFunction(MachineFunction &MF) override {
+        bool changed = false;
+        for (auto &bb : MF) {
+            for (auto instIter = bb.begin(); instIter != bb.end(); ++instIter) {
+                if (instIter->getOpcode() == TargetOpcode::STACKMAP) {
+                    printf("Yay!\n");
+                    changed=true;
+                }
+            }
+        }
+        return changed;
+    }
+};
+}
+char StackMapMovement::ID = 0;
+static RegisterPass<StackMapMovement> X("stack-map-movement", "Stack Map Movement", false, false);
+
+StackMapMovement::StackMapMovement() : MachineFunctionPass(ID) {
+    //printf("Calling initializeStackMapMovementPass\n");
+    //initializeStackMapMovementPass(*PassRegistry::getPassRegistry());
+    //printf("Returned from initializeStackMapMovementPass\n");
+}
+// KW: end STACKMAP movement
 
 // Enable or disable FastISel. Both options are needed, because
 // FastISel is enabled by default with -fast, and we wish to be
@@ -133,6 +173,8 @@ addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
   // Ask the target for an isel.
   if (PassConfig->addInstSelector())
     return nullptr;
+
+  PM.add(new StackMapMovement());
 
   PassConfig->addMachinePasses();
 
