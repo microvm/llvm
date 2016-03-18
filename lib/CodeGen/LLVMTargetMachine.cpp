@@ -54,10 +54,25 @@ public:
     bool runOnMachineFunction(MachineFunction &MF) override {
         bool changed = false;
         for (auto &bb : MF) {
-            for (auto instIter = bb.begin(); instIter != bb.end(); ++instIter) {
+            bool foundCall = false;
+            MachineBasicBlock::iterator callIter;
+            for (auto instIter = bb.begin(); instIter != bb.end();) {
                 if (instIter->getOpcode() == TargetOpcode::STACKMAP) {
-                    printf("Yay!\n");
+                    printf("Found stackmap! foundCall = %s\n", foundCall?"true":"false");
+                    assert(foundCall && "Must find call before finding STACKMAP.");
+                    auto tmpIter = instIter;
+                    instIter++;
+                    MachineInstr *stackmap = bb.remove(tmpIter);
+                    bb.insertAfter(callIter, stackmap);
                     changed=true;
+                    foundCall = false;
+                } else if (instIter->isCall()) {
+                    printf("Found call\n");
+                    callIter = instIter;
+                    foundCall = true;
+                    instIter++;
+                } else {
+                    instIter++;
                 }
             }
         }
